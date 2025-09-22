@@ -36,6 +36,4 @@ You can access NIDS from other devices on the same network:
 - **Scan not working?** Run as administrator
 - **AI features not working?** Check your internet connection
 
-## 📞 Support
 
-For help, open an issue on [GitHub](https://github.com/yourusername/nids/issues)
