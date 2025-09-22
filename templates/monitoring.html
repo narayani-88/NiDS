@@ -157,6 +157,13 @@
 let monitoringInterval;
 
 function startMonitoring() {
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    
+    // Disable button and show loading
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    
     const scanInterval = document.getElementById('scanInterval').value;
     const networkRange = document.getElementById('networkRange').value;
     const detailedScan = document.getElementById('detailedScan').checked;
@@ -167,6 +174,8 @@ function startMonitoring() {
         detailed_scan: detailedScan
     };
     
+    console.log('Starting monitoring with config:', config);
+    
     fetch('/api/monitoring/start', {
         method: 'POST',
         headers: {
@@ -174,40 +183,71 @@ function startMonitoring() {
         },
         body: JSON.stringify(config)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Start response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Start response data:', data);
         if (data.success) {
             showAlert('success', 'Monitoring started successfully!');
             updateMonitoringStatus(true);
             startStatusPolling();
         } else {
             showAlert('danger', 'Failed to start monitoring: ' + data.message);
+            // Reset button on failure
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
         }
     })
     .catch(error => {
+        console.error('Start monitoring error:', error);
         showAlert('danger', 'Error starting monitoring: ' + error.message);
+        // Reset button on error
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
     });
 }
 
 function stopMonitoring() {
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    
+    // Disable button and show loading
+    stopBtn.disabled = true;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+    
+    console.log('Stopping monitoring...');
+    
     fetch('/api/monitoring/stop', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Stop response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Stop response data:', data);
         if (data.success) {
             showAlert('success', 'Monitoring stopped successfully!');
             updateMonitoringStatus(false);
             stopStatusPolling();
         } else {
-            showAlert('danger', 'Failed to stop monitoring: ' + data.message);
+            showAlert('warning', 'Stop response: ' + data.message);
+            // Still update status as stopped
+            updateMonitoringStatus(false);
+            stopStatusPolling();
         }
     })
     .catch(error => {
-        showAlert('danger', 'Error stopping monitoring: ' + error.message);
+        console.error('Stop monitoring error:', error);
+        showAlert('warning', 'Monitoring stopped (connection error)');
+        // Force update status as stopped
+        updateMonitoringStatus(false);
+        stopStatusPolling();
     });
 }
 
@@ -216,16 +256,22 @@ function updateMonitoringStatus(isRunning) {
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     
+    console.log('Updating monitoring status:', isRunning);
+    
     if (isRunning) {
         statusText.textContent = 'RUNNING';
         statusText.className = 'text-success';
         startBtn.disabled = true;
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
         stopBtn.disabled = false;
+        stopBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Monitoring';
     } else {
         statusText.textContent = 'STOPPED';
         statusText.className = 'text-secondary';
         startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
         stopBtn.disabled = true;
+        stopBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Monitoring';
     }
 }
 
@@ -243,11 +289,14 @@ function checkMonitoringStatus() {
     fetch('/api/monitoring/status')
         .then(response => response.json())
         .then(data => {
-            updateMonitoringStatus(data.monitoring);
+            console.log('Status check response:', data);
+            updateMonitoringStatus(data.monitoring || false);
             updateAlerts();
         })
         .catch(error => {
             console.error('Error checking monitoring status:', error);
+            // Assume stopped on error
+            updateMonitoringStatus(false);
         });
 }
 
@@ -277,9 +326,28 @@ function updateAlerts() {
 }
 
 function refreshLog() {
-    // This would fetch monitoring logs if implemented
     const logDiv = document.getElementById('monitoringLog');
-    logDiv.innerHTML = '<p class="text-muted">Log refresh functionality coming soon...</p>';
+    logDiv.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Loading logs...</p>';
+    
+    fetch('/api/monitoring/logs')
+        .then(response => response.json())
+        .then(logs => {
+            if (logs && logs.length > 0) {
+                logDiv.innerHTML = logs.map(log => `
+                    <div class="log-entry mb-1">
+                        <small class="text-muted">[${log.timestamp}]</small>
+                        <span class="log-message">${log.message}</span>
+                        <small class="text-info">(${log.source})</small>
+                    </div>
+                `).join('');
+            } else {
+                logDiv.innerHTML = '<p class="text-muted">No monitoring logs available</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching logs:', error);
+            logDiv.innerHTML = '<p class="text-danger">Error loading logs: ' + error.message + '</p>';
+        });
 }
 
 function showAlert(type, message) {
@@ -302,9 +370,13 @@ function showAlert(type, message) {
 document.addEventListener('DOMContentLoaded', function() {
     checkMonitoringStatus();
     updateAlerts();
+    refreshLog();
     
     // Update status every 30 seconds
     setInterval(updateAlerts, 30000);
+    
+    // Update logs every 15 seconds
+    setInterval(refreshLog, 15000);
 });
 </script>
 {% endblock %}
