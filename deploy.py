@@ -124,7 +124,7 @@ def show_deployment_instructions():
     print("   • Share: http://your-ip:5000")
     
     print("\n🔑 REQUIRED ENVIRONMENT VARIABLES:")
-    print("   • GEMINI_API_KEY=AIzaSyDQ1kTceuy8q6gnZ5V0nFugBLRKSMxJ69w")
+    print("   • GEMINI_API_KEY=use_your_api_key")
     
     print("\n⚠️  IMPORTANT NOTES:")
     print("   • Cloud deployment can only scan cloud network")
