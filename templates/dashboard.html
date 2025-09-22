@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NIDS{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center mb-2">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="NIDS Logo" height="50" class="me-3 logo-large">
+            <div>
+                <h1 class="mb-0"><i class="fas fa-tachometer-alt"></i> NIDS Dashboard</h1>
+                <p class="text-muted mb-0">Network Intrusion Detection System</p>
+            </div>
+        </div>
+        <p class="text-muted">Last scan: {{ stats.last_scan if stats.last_scan != 'Never' else 'No scans yet' }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-primary me-2" onclick="startQuickScan()">
+            <i class="fas fa-search"></i> Quick Scan
+        </button>
+        <button class="btn btn-success" onclick="startDetailedScan()">
+            <i class="fas fa-shield-alt"></i> Full Scan
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-primary">{{ stats.total_devices or 0 }}</div>
+                <div>Devices</div>
+                <small class="text-muted">Network devices found</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-danger">{{ stats.high_severity or 0 }}</div>
+                <div>High Risk</div>
+                <small class="text-muted">Critical vulnerabilities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-warning">{{ stats.medium_severity or 0 }}</div>
+                <div>Medium Risk</div>
+                <small class="text-muted">Moderate vulnerabilities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-success">{{ stats.low_severity or 0 }}</div>
+                <div>Low Risk</div>
+                <small class="text-muted">Minor vulnerabilities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-info">{{ stats.total_vulnerabilities or 0 }}</div>
+                <div>Total Vulns</div>
+                <small class="text-muted">All vulnerabilities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card card-metric">
+            <div class="card-body">
+                <div class="metric-value text-secondary">{{ stats.total_alerts or 0 }}</div>
+                <div>Alerts</div>
+                <small class="text-muted">Security alerts</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan Progress -->
+<div class="row mb-4" id="scanProgress" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5><i class="fas fa-spinner fa-spin"></i> Scanning Network...</h5>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p class="mt-2 mb-0" id="scanStatus">Initializing scan...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-exclamation-triangle"></i> Recent Alerts</h5>
+                <a href="{{ url_for('alerts') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if alerts %}
+                    {% for alert in alerts[:5] %}
+                    <div class="alert alert-{{ 'danger' if alert.severity == 'HIGH' else 'warning' if alert.severity == 'MEDIUM' else 'info' }} alert-item mb-2">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ alert.type }}</strong>
+                            <small class="text-muted">{{ alert.timestamp }}</small>
+                        </div>
+                        <div>{{ alert.message }}</div>
+                    </div>
+                    {% endfor %}
+                    {% if alerts|length > 5 %}
+                    <p class="text-center mb-0">
+                        <a href="{{ url_for('alerts') }}">View {{ alerts|length - 5 }} more alerts</a>
+                    </p>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>No security alerts</p>
+                        <small>Your network appears secure</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-bug"></i> Top Vulnerabilities</h5>
+                <a href="{{ url_for('vulnerabilities') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if vulnerabilities %}
+                    {% for vuln in vulnerabilities[:5] %}
+                    <div class="mb-3 p-2 border-start border-{{ 'danger' if vuln.severity == 'HIGH' else 'warning' if vuln.severity == 'MEDIUM' else 'success' }} border-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="badge bg-{{ 'danger' if vuln.severity == 'HIGH' else 'warning' if vuln.severity == 'MEDIUM' else 'success' }}">
+                                {{ vuln.severity }}
+                            </span>
+                            <small class="text-muted">{{ vuln.ip }}</small>
+                        </div>
+                        <strong class="d-block">{{ vuln.type }}</strong>
+                        <small class="text-muted">{{ vuln.description[:80] }}{% if vuln.description|length > 80 %}...{% endif %}</small>
+                    </div>
+                    {% endfor %}
+                    {% if vulnerabilities|length > 5 %}
+                    <p class="text-center mb-0">
+                        <a href="{{ url_for('vulnerabilities') }}">View {{ vulnerabilities|length - 5 }} more vulnerabilities</a>
+                    </p>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                        <p>No vulnerabilities detected</p>
+                        <small>Run a scan to check for security issues</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Devices -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-network-wired"></i> Recent Devices</h5>
+                <a href="{{ url_for('devices') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if devices %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>Hostname</th>
+                                <th>Open Ports</th>
+                                <th>Risk Level</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ip, device in devices.items() %}
+                            {% if loop.index <= 10 %}
+                            <tr>
+                                <td><code>{{ ip }}</code></td>
+                                <td>{{ device.hostname or 'Unknown' }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ device.ports|length }} ports</span>
+                                </td>
+                                <td>
+                                    {% set device_vulns = vulnerabilities|selectattr('ip', 'equalto', ip)|list %}
+                                    {% if device_vulns %}
+                                        {% set high_vulns = device_vulns|selectattr('severity', 'equalto', 'HIGH')|list %}
+                                        {% if high_vulns %}
+                                            <span class="badge bg-danger">High Risk</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Medium Risk</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-success">Low Risk</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ device.scan_time or 'Unknown' }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-search fa-3x mb-3"></i>
+                    <p>No devices discovered yet</p>
+                    <small>Click "Quick Scan" to discover devices on your network</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startQuickScan() {
+    showScanProgress();
+    fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            detailed: false,
+            vulnerabilities: false
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideScanProgress();
+        if (data.success) {
+            showAlert('success', 'Scan completed successfully!');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('danger', 'Scan failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideScanProgress();
+        showAlert('danger', 'Scan failed: ' + error.message);
+    });
+}
+
+function startDetailedScan() {
+    showScanProgress();
+    fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            detailed: true,
+            vulnerabilities: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideScanProgress();
+        if (data.success) {
+            showAlert('success', 'Detailed scan completed successfully!');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('danger', 'Scan failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        hideScanProgress();
+        showAlert('danger', 'Scan failed: ' + error.message);
+    });
+}
+
+function showScanProgress() {
+    document.getElementById('scanProgress').style.display = 'block';
+    let progress = 0;
+    const progressBar = document.querySelector('.progress-bar');
+    const statusText = document.getElementById('scanStatus');
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90;
+        progressBar.style.width = progress + '%';
+        
+        if (progress < 30) {
+            statusText.textContent = 'Discovering devices...';
+        } else if (progress < 60) {
+            statusText.textContent = 'Scanning ports...';
+        } else {
+            statusText.textContent = 'Analyzing vulnerabilities...';
+        }
+    }, 1000);
+    
+    // Store interval ID to clear it later
+    window.scanInterval = interval;
+}
+
+function hideScanProgress() {
+    document.getElementById('scanProgress').style.display = 'none';
+    if (window.scanInterval) {
+        clearInterval(window.scanInterval);
+    }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Auto-refresh dashboard every 30 seconds
+setInterval(() => {
+    if (!document.getElementById('scanProgress').style.display || 
+        document.getElementById('scanProgress').style.display === 'none') {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}

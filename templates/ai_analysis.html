@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}AI Analysis - NIDS{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center mb-2">
+            <i class="fas fa-brain fa-2x text-primary me-3"></i>
+            <div>
+                <h1 class="mb-0">AI Network Analysis</h1>
+                <p class="text-muted mb-0">Intelligent security insights powered by Google Gemini</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-end">
+        <button class="btn btn-primary" onclick="generateAIAnalysis()" id="analyzeBtn">
+            <i class="fas fa-magic"></i> Generate Analysis
+        </button>
+    </div>
+</div>
+
+{% if analysis %}
+<!-- AI Analysis Results -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-{{ 'brain' if analysis.analysis_method == 'ai' else 'cogs' }}"></i> 
+                    {{ 'AI Security Assessment' if analysis.analysis_method == 'ai' else 'Intelligent Security Assessment' }}
+                </h5>
+                <small>
+                    Generated: {{ analysis.timestamp }} | 
+                    Method: {{ 'AI-Powered' if analysis.analysis_method == 'ai' else 'Rule-Based Analysis' }}
+                </small>
+            </div>
+            <div class="card-body">
+                <!-- Risk Score -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="display-4 text-{{ analysis.risk_score.color }}">
+                                {{ analysis.risk_score.score }}
+                            </div>
+                            <h5 class="text-{{ analysis.risk_score.color }}">{{ analysis.risk_score.level }} RISK</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <h6>Network Summary</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-primary">{{ analysis.network_summary.total_devices }}</h4>
+                                        <small>Total Devices</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-danger">{{ analysis.network_summary.vulnerabilities.high }}</h4>
+                                        <small>High Risk</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-warning">{{ analysis.network_summary.vulnerabilities.medium }}</h4>
+                                        <small>Medium Risk</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-success">{{ analysis.network_summary.vulnerabilities.low }}</h4>
+                                        <small>Low Risk</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Analysis Sections -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="fas fa-shield-alt"></i> Security Assessment</h6>
+            </div>
+            <div class="card-body">
+                <pre class="text-wrap">{{ analysis.ai_analysis.security_assessment or 'No assessment available' }}</pre>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="fas fa-exclamation-triangle"></i> Key Findings</h6>
+            </div>
+            <div class="card-body">
+                <pre class="text-wrap">{{ analysis.ai_analysis.key_findings or 'No findings available' }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="fas fa-fire"></i> Immediate Risks</h6>
+            </div>
+            <div class="card-body">
+                <pre class="text-wrap">{{ analysis.ai_analysis.immediate_risks or 'No immediate risks identified' }}</pre>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="fas fa-network-wired"></i> Network Topology</h6>
+            </div>
+            <div class="card-body">
+                <pre class="text-wrap">{{ analysis.ai_analysis.topology_insights or 'No topology insights available' }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recommendations -->
+{% if analysis.recommendations %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> Security Recommendations</h5>
+            </div>
+            <div class="card-body">
+                {% for rec in analysis.recommendations %}
+                <div class="alert alert-{{ 'danger' if rec.priority == 'HIGH' else 'warning' if rec.priority == 'MEDIUM' else 'info' }} mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="alert-heading">
+                                <span class="badge bg-{{ 'danger' if rec.priority == 'HIGH' else 'warning' if rec.priority == 'MEDIUM' else 'info' }}">
+                                    {{ rec.priority }}
+                                </span>
+                                {{ rec.title }}
+                            </h6>
+                            <p class="mb-2">{{ rec.description }}</p>
+                            <small><strong>Action:</strong> {{ rec.action }}</small>
+                        </div>
+                        <span class="badge bg-secondary">{{ rec.category }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Compliance Notes -->
+{% if analysis.ai_analysis.compliance_notes %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-clipboard-check"></i> Compliance Considerations</h6>
+            </div>
+            <div class="card-body">
+                <pre class="text-wrap">{{ analysis.ai_analysis.compliance_notes }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- No Analysis Available -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-brain fa-4x text-muted mb-3"></i>
+                <h4>AI Analysis Not Generated</h4>
+                <p class="text-muted">Click "Generate Analysis" to get intelligent insights about your network security.</p>
+                <p class="text-muted">
+                    <small>
+                        <i class="fas fa-info-circle"></i> 
+                        Analysis includes security assessment, risk evaluation, and actionable recommendations.
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Generating AI Analysis...</h5>
+                <p class="text-muted mb-0">This may take 30-60 seconds</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function generateAIAnalysis() {
+    // Show loading modal
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    // Disable button
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+    
+    fetch('/api/ai-analysis', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingModal.hide();
+        
+        if (data.success) {
+            showAlert('success', 'AI analysis generated successfully!');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('danger', 'Analysis failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        loadingModal.hide();
+        showAlert('danger', 'Analysis failed: ' + error.message);
+    })
+    .finally(() => {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Analysis';
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

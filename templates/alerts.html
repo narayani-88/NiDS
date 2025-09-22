@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Security Alerts</h1>
+{% for alert in alerts %}
+<div class="alert alert-{{ 'danger' if alert.severity == 'HIGH' else 'warning' }}">
+    <strong>{{ alert.type }}</strong><br>
+    {{ alert.message }}<br>
+    <small>{{ alert.timestamp }}</small>
+</div>
+{% endfor %}
+{% endblock %}

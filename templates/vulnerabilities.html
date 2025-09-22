@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Security Vulnerabilities</h1>
+{% for severity, vulns in vuln_by_severity.items() %}
+<h3 class="severity-{{ severity.lower() }}">{{ severity }} Severity ({{ vulns|length }})</h3>
+{% for vuln in vulns %}
+<div class="card mb-2">
+    <div class="card-body">
+        <h6>{{ vuln.type }} - {{ vuln.ip }}</h6>
+        <p>{{ vuln.description }}</p>
+        <small>Recommendation: {{ vuln.recommendation }}</small>
+    </div>
+</div>
+{% endfor %}
+{% endfor %}
+{% endblock %}
