@@ -328,13 +328,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - ⚖️ **Legal Compliance**: Ensure compliance with local laws and regulations
 - 🚫 **No Liability**: Developers assume no responsibility for misuse or unauthorized access
 
-## 🆘 Support & Community
-
-### 📞 Get Help
-1. 📖 **Documentation**: Check the comprehensive guides above
-2. 🐛 **Issues**: Search [GitHub Issues](https://github.com/yourusername/nids/issues)
-3. 💬 **Discussions**: Join [Community Discussions](https://github.com/yourusername/nids/discussions)
-4. 📧 **Contact**: Create a new issue for bugs or feature requests
 
 ## 🔄 Version History
 
