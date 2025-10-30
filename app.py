@@ -38,7 +38,7 @@ try:
     from ai_analyzer import AINetworkAnalyzer
     AI_ANALYZER_AVAILABLE = True
     # Gemini API Key
-    GEMINI_API_KEY = "AIzaSyDQ1kTceuy8q6gnZ5V0nFugBLRKSMxJ69w"
+    GEMINI_API_KEY = ""
 except ImportError as e:
     print(f"Warning: AI Analyzer not available: {e}")
     AI_ANALYZER_AVAILABLE = False
