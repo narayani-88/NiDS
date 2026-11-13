@@ -15,15 +15,37 @@ import platform
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import ipaddress
-import netifaces
-import nmap
+
+try:
+    import netifaces
+    HAS_NETIFACES = True
+except ImportError:
+    HAS_NETIFACES = False
+
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
+try:
+    import nmap
+    HAS_NMAP = True
+except ImportError:
+    HAS_NMAP = False
 
 class NetworkScanner:
     def __init__(self, max_threads=50):
         self.max_threads = max_threads
         self.devices = {}
-        self.nm = nmap.PortScanner()
         self.setup_logging()
+        self.nm = None
+        if HAS_NMAP:
+            try:
+                self.nm = nmap.PortScanner()
+            except Exception as e:
+                self.logger.warning(f"nmap program not found; falling back to built-in socket scanner: {e}")
+                self.nm = None
         
     def setup_logging(self):
         """Setup logging configuration"""
@@ -40,48 +62,96 @@ class NetworkScanner:
     def get_all_network_ranges(self):
         """Get all local network ranges from all interfaces"""
         networks = []
-        try:
-            interfaces = netifaces.interfaces()
-            for interface in interfaces:
-                try:
-                    addrs = netifaces.ifaddresses(interface)
-                    if netifaces.AF_INET in addrs:
-                        for addr_info in addrs[netifaces.AF_INET]:
-                            ip = addr_info.get('addr')
-                            netmask = addr_info.get('netmask')
-                            if ip and netmask and not ip.startswith('127.'):
-                                network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
-                                networks.append(str(network))
-                except Exception as e:
-                    continue
-        except Exception as e:
-            self.logger.error(f"Error getting network ranges: {e}")
+        if HAS_PSUTIL:
+            try:
+                for iface, addrs in psutil.net_if_addrs().items():
+                    for addr in addrs:
+                        if addr.family == socket.AF_INET and addr.address:
+                            ip = addr.address
+                            netmask = addr.netmask
+                            if not ip.startswith('127.') and not ip.startswith('169.254.') and netmask:
+                                try:
+                                    network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                                    networks.append(str(network))
+                                except Exception:
+                                    continue
+            except Exception as e:
+                self.logger.error(f"Error getting network ranges via psutil: {e}")
+
+        if not networks and HAS_NETIFACES:
+            try:
+                interfaces = netifaces.interfaces()
+                for interface in interfaces:
+                    try:
+                        addrs = netifaces.ifaddresses(interface)
+                        if netifaces.AF_INET in addrs:
+                            for addr_info in addrs[netifaces.AF_INET]:
+                                ip = addr_info.get('addr')
+                                netmask = addr_info.get('netmask')
+                                if ip and netmask and not ip.startswith('127.') and not ip.startswith('169.254.'):
+                                    network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                                    networks.append(str(network))
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                self.logger.error(f"Error getting network ranges: {e}")
         
         # Remove duplicates and return
         return list(set(networks)) if networks else ["192.168.1.0/24"]
 
     def get_local_network_range(self):
         """Get the primary local network range automatically"""
+        # 1. Best approach: active outgoing socket probe
         try:
-            # Get default gateway interface
-            gateways = netifaces.gateways()
-            default_gateway = gateways['default'][netifaces.AF_INET]
-            interface = default_gateway[1]
-            
-            # Get network info for the interface
-            addrs = netifaces.ifaddresses(interface)
-            ipv4_info = addrs[netifaces.AF_INET][0]
-            
-            ip = ipv4_info['addr']
-            netmask = ipv4_info['netmask']
-            
-            # Calculate network range
-            network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
-            return str(network)
-            
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            active_ip = s.getsockname()[0]
+            s.close()
+
+            if HAS_PSUTIL:
+                for iface, addrs in psutil.net_if_addrs().items():
+                    for addr in addrs:
+                        if addr.family == socket.AF_INET and addr.address == active_ip:
+                            netmask = addr.netmask or "255.255.255.0"
+                            network = ipaddress.IPv4Network(f"{active_ip}/{netmask}", strict=False)
+                            return str(network)
+
+            if active_ip and not active_ip.startswith('127.'):
+                network = ipaddress.IPv4Network(f"{active_ip}/24", strict=False)
+                return str(network)
         except Exception as e:
-            self.logger.error(f"Error getting network range: {e}")
-            return "192.168.1.0/24"  # Default fallback
+            self.logger.debug(f"Socket probe for local range failed: {e}")
+
+        # 2. Try netifaces if available
+        if HAS_NETIFACES:
+            try:
+                gateways = netifaces.gateways()
+                default_gateway = gateways['default'][netifaces.AF_INET]
+                interface = default_gateway[1]
+                addrs = netifaces.ifaddresses(interface)
+                ipv4_info = addrs[netifaces.AF_INET][0]
+                ip = ipv4_info['addr']
+                netmask = ipv4_info['netmask']
+                network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                return str(network)
+            except Exception as e:
+                self.logger.debug(f"netifaces gateway lookup failed: {e}")
+
+        # 3. Try psutil interfaces
+        if HAS_PSUTIL:
+            try:
+                for iface, addrs in psutil.net_if_addrs().items():
+                    for addr in addrs:
+                        if addr.family == socket.AF_INET and addr.address:
+                            ip = addr.address
+                            if not ip.startswith('127.') and not ip.startswith('169.254.'):
+                                netmask = addr.netmask or "255.255.255.0"
+                                network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                                return str(network)
+            except Exception as e:
+                self.logger.debug(f"psutil fallback failed: {e}")
+
+        return "192.168.1.0/24"  # Default fallback
 
     def ping_host(self, ip, timeout=3):
         """Ping a single host to check if it's alive with improved timeout"""
@@ -195,6 +265,9 @@ class NetworkScanner:
 
     def detailed_port_scan(self, ip, ports=None):
         """Perform detailed port scan using nmap with better error handling"""
+        if not self.nm:
+            return None
+
         if ports is None:
             ports = "1-1000"  # Scan first 1000 ports
             
