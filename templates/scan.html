@@ -1,21 +1,120 @@
 {% extends "base.html" %}
+
+{% block title %}Network Scan - NIDS{% endblock %}
+
 {% block content %}
-<h1>Manual Network Scan</h1>
-<div class="card">
-    <div class="card-body">
-        <form id="scanForm">
-            <div class="mb-3">
-                <label>Network Range:</label>
-                <input type="text" class="form-control" name="network_range" placeholder="192.168.1.0/24">
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-center mb-2">
+            <i class="fas fa-search fa-2x text-primary me-3"></i>
+            <div>
+                <h1 class="mb-0">Manual Network Scan</h1>
+                <p class="text-muted mb-0">Discover active devices and security vulnerabilities on your local network</p>
             </div>
-            <div class="mb-3">
-                <label>
-                    <input type="checkbox" name="detailed"> Detailed Scan
-                </label>
-            </div>
-            <button type="submit" class="btn btn-primary">Start Scan</button>
-        </form>
-        <div id="scanResult" class="mt-3"></div>
+        </div>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i> Scan Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="scanForm">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">Network Range (CIDR):</label>
+                        <input type="text" class="form-control" name="network_range" id="networkRange" placeholder="e.g. 192.168.1.0/24 (leave blank for auto-detect)">
+                        <small class="form-text text-muted">Leave blank to automatically detect your local subnet.</small>
+                    </div>
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" name="detailed" id="detailedCheck">
+                        <label class="form-check-label" for="detailedCheck">
+                            Detailed Port Scan & Vulnerability Assessment
+                        </label>
+                        <small class="form-text text-muted d-block">May take 1-3 minutes depending on network size.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="scanSubmitBtn">
+                        <i class="fas fa-play me-1"></i> Start Scan
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary ms-2">Back to Dashboard</a>
+                </form>
+
+                <div id="scanResult" class="mt-4" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('scanForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('scanSubmitBtn');
+    const resultDiv = document.getElementById('scanResult');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Scanning in progress...';
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+        <div class="alert alert-info">
+            <h5><i class="fas fa-spinner fa-spin me-2"></i> Scanning network...</h5>
+            <p class="mb-0">Scanning active hosts and identifying services. Please wait, this may take 1-2 minutes.</p>
+        </div>
+    `;
+
+    const networkRange = document.getElementById('networkRange').value.trim();
+    const detailed = document.getElementById('detailedCheck').checked;
+
+    fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            network_range: networkRange || null,
+            detailed: detailed,
+            vulnerabilities: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play me-1"></i> Start Scan';
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle me-2"></i> Scan Completed Successfully!</h5>
+                    <p class="mb-2">${data.message}</p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-success btn-sm me-2">
+                        <i class="fas fa-tachometer-alt me-1"></i> Go to Dashboard
+                    </a>
+                    <a href="{{ url_for('devices') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-laptop me-1"></i> View Devices
+                    </a>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i> Scan Failed</h5>
+                    <p class="mb-0">${data.message || 'An unknown error occurred during scanning.'}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play me-1"></i> Start Scan';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-times-circle me-2"></i> Connection Error</h5>
+                <p class="mb-0">${err.message}</p>
+            </div>
+        `;
+    });
+});
+</script>
 {% endblock %}

@@ -220,6 +220,11 @@ def debug():
     
     return f"<pre>{json.dumps(debug_info, indent=2)}</pre>"
 
+@app.route('/scan')
+def scan():
+    """Manual network scan page"""
+    return render_template('scan.html')
+
 # API Routes
 @app.route('/api/test', methods=['GET'])
 def api_test():
@@ -671,6 +676,7 @@ def create_templates():
             </a>
             <div class="navbar-nav">
                 <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('scan') }}">Scan</a>
                 <a class="nav-link" href="{{ url_for('devices') }}">Devices</a>
                 <a class="nav-link" href="{{ url_for('vulnerabilities') }}">Vulnerabilities</a>
                 <a class="nav-link" href="{{ url_for('alerts') }}">Alerts</a>
